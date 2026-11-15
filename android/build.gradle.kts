@@ -19,6 +19,15 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Android lint crashes (NoSuchMethodError inside lint itself) while scanning
+// the Java sources of third-party plugins such as image_picker_android.
+// Those are not our code to lint, so the release lint pass is limited to :app.
+subprojects {
+    if (name != "app") {
+        tasks.matching { it.name.startsWith("lintVital") }.configureEach { enabled = false }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

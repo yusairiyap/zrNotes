@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,7 +12,9 @@ import '../data/markdown.dart';
 import '../models.dart';
 import '../state/notes_store.dart';
 import '../theme/vibes.dart';
+import 'note_page.dart';
 import 'section_style_dialog.dart';
+import 'subnote_embed.dart';
 import 'table_embed.dart';
 import 'widgets.dart';
 
@@ -187,7 +190,53 @@ class _SectionCardState extends State<SectionCard> {
     final empty = _quill.document.toPlainText().trim().isEmpty && !s.hasHeader;
     if (empty ||
         await confirm(context, title: 'Delete this section?', message: 'Its text and images will be removed.')) {
-      _store.deleteSection(s);
+      _store.removeSection(s);
+    }
+  }
+
+  void _toggleMarkdown() {
+    setState(() => _mdLocal = !_mdLocal);
+    _modeChanged();
+  }
+
+  /// Adds a subnote at the end of this section and opens it.
+  Future<void> _addSubnote() async {
+    final sub = await _store.addNote(parentNoteId: s.noteId, title: 'New subnote');
+    if (_isMd) {
+      _md.text = '${_md.text}\n[[subnote:${sub.id}]]\n';
+      _mdDirty = true;
+      _applyMarkdown();
+    } else {
+      final end = _quill.document.length - 1;
+      _quill.replaceText(end, 0, subnoteEmbed(sub.id), TextSelection.collapsed(offset: end + 1));
+    }
+    if (mounted) openSubnote(context, sub);
+  }
+
+  /// The right-click (or "more") menu of a section.
+  Future<void> _menu(Offset at) async {
+    final choice = await showContextMenu(context, at, {
+      'style': const ('Title, icon and colour', Icons.palette_outlined),
+      if (!widget.markdownMode) 'md': (_mdLocal ? 'Back to rich text' : 'Edit as Markdown', _mdLocal ? Icons.notes : Icons.code),
+      'sub': const ('Add subnote', Icons.note_add_outlined),
+      'copy': const ('Duplicate', Icons.copy_outlined),
+      'front': const ('Bring to front', Icons.flip_to_front_outlined),
+      'delete': const ('Delete section', Icons.delete_outline),
+    });
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'style':
+        showSectionStyleDialog(context, s);
+      case 'md':
+        _toggleMarkdown();
+      case 'sub':
+        await _addSubnote();
+      case 'copy':
+        await _store.duplicateSection(s);
+      case 'front':
+        _store.bringToFront(s);
+      case 'delete':
+        await _delete();
     }
   }
 
@@ -197,8 +246,12 @@ class _SectionCardState extends State<SectionCard> {
         cursor: _dragging ? SystemMouseCursors.grabbing : SystemMouseCursors.grab,
         child: Listener(
           behavior: HitTestBehavior.opaque,
-          onPointerDown: (_) {
+          onPointerDown: (e) {
             widget.onInteract(true);
+            if (e.buttons & kSecondaryMouseButton != 0) {
+              _menu(e.position);
+              return;
+            }
             _store.bringToFront(s);
             setState(() => _dragging = true);
           },
@@ -264,7 +317,7 @@ class _SectionCardState extends State<SectionCard> {
         children: [
           if (tabbed)
             ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: (s.width - 112).clamp(60, 2000)),
+              constraints: BoxConstraints(maxWidth: (s.width - 146).clamp(60, 2000)),
               child: _dragHandle(
                 child: Container(
                   height: 30,
@@ -324,12 +377,15 @@ class _SectionCardState extends State<SectionCard> {
                       ),
                     ),
                     if (!widget.markdownMode)
-                      _tool(_mdLocal ? 'Back to rich text' : 'Edit as Markdown', _mdLocal ? Icons.notes : Icons.code, () {
-                        setState(() => _mdLocal = !_mdLocal);
-                        _modeChanged();
-                      }),
+                      _tool(_mdLocal ? 'Back to rich text' : 'Edit as Markdown', _mdLocal ? Icons.notes : Icons.code, _toggleMarkdown),
                     _tool('Title, icon and colour', Icons.palette_outlined, () => showSectionStyleDialog(context, s)),
                     _tool('Delete section', Icons.delete_outline, _delete),
+                    Builder(
+                      builder: (c) => _tool('More', Icons.more_vert, () {
+                        final box = c.findRenderObject() as RenderBox;
+                        _menu(box.localToGlobal(box.size.bottomLeft(Offset.zero)));
+                      }),
+                    ),
                   ],
                 ),
               ),
@@ -420,7 +476,7 @@ class _SectionCardState extends State<SectionCard> {
             customStyleBuilder: (attr) => attr.key == Attribute.background.key
                 ? const TextStyle(color: Color(0xFF16181D))
                 : const TextStyle(),
-            embedBuilders: [...FlutterQuillEmbeds.defaultEditorBuilders(), const TableEmbedBuilder()],
+            embedBuilders: [...FlutterQuillEmbeds.defaultEditorBuilders(), const TableEmbedBuilder(), const SubnoteEmbedBuilder()],
           ),
         ),
       );

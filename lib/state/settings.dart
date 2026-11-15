@@ -41,7 +41,9 @@ class AppSettings extends ChangeNotifier {
   bool boldText = false;
   bool showMarkdownToggle = true;
   ToolbarMode toolbar = ToolbarMode.floating;
+  bool showToolbarLabels = true;
   bool showNavIcons = true;
+  bool showNavSections = true;
   bool showNoteCounts = true;
   bool showChecklistProgress = true;
   bool zoomOutSummary = true;
@@ -77,7 +79,9 @@ class AppSettings extends ChangeNotifier {
         'boldText': boldText,
         'showMarkdownToggle': showMarkdownToggle,
         'toolbar': toolbar.name,
+        'showToolbarLabels': showToolbarLabels,
         'showNavIcons': showNavIcons,
+        'showNavSections': showNavSections,
         'showNoteCounts': showNoteCounts,
         'showChecklistProgress': showChecklistProgress,
         'zoomOutSummary': zoomOutSummary,
@@ -105,7 +109,9 @@ class AppSettings extends ChangeNotifier {
     boldText = (j['boldText'] as bool?) ?? boldText;
     showMarkdownToggle = (j['showMarkdownToggle'] as bool?) ?? showMarkdownToggle;
     toolbar = _enum(ToolbarMode.values, j['toolbar'], toolbar);
+    showToolbarLabels = (j['showToolbarLabels'] as bool?) ?? showToolbarLabels;
     showNavIcons = (j['showNavIcons'] as bool?) ?? showNavIcons;
+    showNavSections = (j['showNavSections'] as bool?) ?? showNavSections;
     showNoteCounts = (j['showNoteCounts'] as bool?) ?? showNoteCounts;
     showChecklistProgress = (j['showChecklistProgress'] as bool?) ?? showChecklistProgress;
     zoomOutSummary = (j['zoomOutSummary'] as bool?) ?? zoomOutSummary;
@@ -141,51 +147,117 @@ class AppSettings extends ChangeNotifier {
   }
 
   // ---- presets -----------------------------------------------------------
+  //
+  // A preset decides how much is on screen and how comfortable it is to read.
+  // It never touches the look (vibe, colours, navigation position): that is
+  // what vibes are for. Each preset is a full snapshot of the fields below,
+  // so the app can tell which one is active, or that the user has gone custom.
 
   static const presets = <String, String>{
     'simple': 'Simple. Just notes, with fewer buttons.',
     'balanced': 'Balanced. The everyday set of tools.',
     'power': 'Power. Every tool and view on show.',
     'comfort': 'Comfort. Larger text and buttons, strong contrast, calm motion.',
-    'focus': 'Focus. The Zen vibe with the toolbar tucked away.',
+    'focus': 'Focus. Fewer things on screen. Pairs well with the Zen vibe.',
   };
 
+  static const presetIcons = <String, IconData>{
+    'simple': Icons.spa_outlined,
+    'balanced': Icons.balance_outlined,
+    'power': Icons.bolt_outlined,
+    'comfort': Icons.accessibility_new_outlined,
+    'focus': Icons.center_focus_strong_outlined,
+  };
+
+  static const _balanced = <String, Object>{
+    'level': UserLevel.balanced,
+    'showMarkdownToggle': true,
+    'showNoteCounts': true,
+    'showChecklistProgress': true,
+    'showNavIcons': true,
+    'zoomOutSummary': true,
+    'toolbar': ToolbarMode.floating,
+    'showToolbarLabels': true,
+    'textScale': 1.0,
+    'largeTargets': false,
+    'highContrast': false,
+    'reduceMotion': false,
+    'boldText': false,
+  };
+
+  static final _presetValues = <String, Map<String, Object>>{
+    'simple': {
+      ..._balanced,
+      'level': UserLevel.simple,
+      'showMarkdownToggle': false,
+      'showNoteCounts': false,
+      'showChecklistProgress': false,
+    },
+    'balanced': _balanced,
+    'power': {..._balanced, 'level': UserLevel.power, 'toolbar': ToolbarMode.docked},
+    'comfort': {
+      ..._balanced,
+      'level': UserLevel.simple,
+      'showMarkdownToggle': false,
+      'textScale': 1.3,
+      'largeTargets': true,
+      'highContrast': true,
+      'reduceMotion': true,
+      'boldText': true,
+    },
+    'focus': {
+      ..._balanced,
+      'showMarkdownToggle': false,
+      'showNoteCounts': false,
+      'showChecklistProgress': false,
+      'showNavIcons': false,
+      'showToolbarLabels': false,
+    },
+  };
+
+  Map<String, Object> get _presetFields => {
+        'level': level,
+        'showMarkdownToggle': showMarkdownToggle,
+        'showNoteCounts': showNoteCounts,
+        'showChecklistProgress': showChecklistProgress,
+        'showNavIcons': showNavIcons,
+        'zoomOutSummary': zoomOutSummary,
+        'toolbar': toolbar,
+        'showToolbarLabels': showToolbarLabels,
+        'textScale': textScale,
+        'largeTargets': largeTargets,
+        'highContrast': highContrast,
+        'reduceMotion': reduceMotion,
+        'boldText': boldText,
+      };
+
+  /// The preset the current options match, or null when the user has changed
+  /// something by hand ("Custom").
+  String? get currentPreset {
+    final now = _presetFields;
+    for (final e in _presetValues.entries) {
+      if (e.value.entries.every((f) => now[f.key] == f.value)) return e.key;
+    }
+    return null;
+  }
+
   void applyPreset(String id) {
+    final values = _presetValues[id];
+    if (values == null) return;
     update((s) {
-      switch (id) {
-        case 'simple':
-          s.level = UserLevel.simple;
-          s.showMarkdownToggle = false;
-          s.showNoteCounts = false;
-          s.showChecklistProgress = false;
-          s.textScale = 1.0;
-          s.largeTargets = false;
-          s.highContrast = false;
-        case 'balanced':
-          s.level = UserLevel.balanced;
-          s.showMarkdownToggle = true;
-          s.textScale = 1.0;
-          s.largeTargets = false;
-          s.highContrast = false;
-        case 'power':
-          s.level = UserLevel.power;
-          s.showMarkdownToggle = true;
-          s.showNoteCounts = true;
-          s.showChecklistProgress = true;
-          s.zoomOutSummary = true;
-        case 'comfort':
-          s.level = UserLevel.simple;
-          s.textScale = 1.3;
-          s.largeTargets = true;
-          s.highContrast = true;
-          s.reduceMotion = true;
-          s.boldText = true;
-          s.showMarkdownToggle = false;
-        case 'focus':
-          s.vibe = 'zen';
-          s.level = UserLevel.balanced;
-          s.toolbar = ToolbarMode.floating;
-      }
+      s.level = values['level']! as UserLevel;
+      s.showMarkdownToggle = values['showMarkdownToggle']! as bool;
+      s.showNoteCounts = values['showNoteCounts']! as bool;
+      s.showChecklistProgress = values['showChecklistProgress']! as bool;
+      s.showNavIcons = values['showNavIcons']! as bool;
+      s.zoomOutSummary = values['zoomOutSummary']! as bool;
+      s.toolbar = values['toolbar']! as ToolbarMode;
+      s.showToolbarLabels = values['showToolbarLabels']! as bool;
+      s.textScale = values['textScale']! as double;
+      s.largeTargets = values['largeTargets']! as bool;
+      s.highContrast = values['highContrast']! as bool;
+      s.reduceMotion = values['reduceMotion']! as bool;
+      s.boldText = values['boldText']! as bool;
     });
   }
 }

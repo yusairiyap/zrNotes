@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +22,8 @@ import 'ui/wizard.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // On the web, right-click opens the app's own menus instead of the browser's.
+  if (kIsWeb) unawaited(BrowserContextMenu.disableContextMenu());
   await Supabase.initialize(url: AppConfig.supabaseUrl, publishableKey: AppConfig.supabaseKey);
 
   final Repository repo = AppConfig.demo ? DemoRepository() : Repository();

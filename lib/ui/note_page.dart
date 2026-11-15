@@ -7,11 +7,14 @@ import 'package:markdown_quill/markdown_quill.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../data/markdown.dart';
 import '../models.dart';
 import '../state/notes_store.dart';
 import '../state/settings.dart';
 import '../theme/vibes.dart';
 import 'canvas_view.dart';
+import 'format_toolbar.dart';
+import 'subnote_embed.dart';
 import 'widgets.dart';
 
 bool get isDesktopPlatform =>
@@ -27,7 +30,7 @@ Future<void> openSubnote(BuildContext context, Note note) {
   store.loadSections(note.id);
   final wide = MediaQuery.sizeOf(context).width >= 720;
   if (wide) {
-    return showDialog<void>(
+    return showVibeDialog<void>(
       context: context,
       builder: (_) => Dialog(
         insetPadding: const EdgeInsets.all(32),
@@ -49,7 +52,19 @@ Future<void> openSubnote(BuildContext context, Note note) {
   );
 }
 
-/// A note: its title, subnotes, formatting toolbar and canvas.
+/// Adds a subnote to [noteId] as a new section at ([x], [y]) holding its
+/// link, then opens it.
+Future<void> addSubnoteSection(BuildContext context, String noteId, double x, double y) async {
+  final store = context.read<NotesStore>();
+  final sub = await store.addNote(parentNoteId: noteId, title: 'New subnote');
+  await store.addSection(noteId, x, y, focus: false, content: [
+    {'insert': {subnoteEmbedType: sub.id}},
+    {'insert': '\n'},
+  ]);
+  if (context.mounted) openSubnote(context, sub);
+}
+
+/// A note: its title, formatting toolbar and canvas.
 class NotePage extends StatefulWidget {
   const NotePage({super.key, required this.noteId, this.embedded = false, this.leading});
   final String noteId;
@@ -127,41 +142,26 @@ class _NotePageState extends State<NotePage> {
     }
   }
 
-  QuillSimpleToolbarConfig _toolbarConfig(UserLevel level) {
-    final simple = level == UserLevel.simple;
-    final power = level == UserLevel.power;
-    return QuillSimpleToolbarConfig(
-      multiRowsDisplay: false,
-      showFontFamily: power,
-      showFontSize: true,
-      showStrikeThrough: !simple,
-      showInlineCode: !simple,
-      showClearFormat: !simple,
-      showAlignmentButtons: power,
-      showHeaderStyle: !simple,
-      showCodeBlock: !simple,
-      showQuote: !simple,
-      showIndent: power,
-      showLink: !simple,
-      showUndo: true,
-      showRedo: true,
-      showSearchButton: power,
-      showSubscript: power,
-      showSuperscript: power,
-      customButtons: [
-        QuillToolbarCustomButtonOptions(
-          icon: const Icon(Icons.table_chart_outlined),
-          tooltip: 'Insert table',
-          onPressed: _insertTable,
-        ),
-        QuillToolbarCustomButtonOptions(
-          icon: const Icon(Icons.image_outlined),
-          tooltip: 'Insert image',
-          onPressed: _insertImage,
-        ),
-      ],
-    );
+  /// Puts a new subnote at the cursor of the section being edited.
+  Future<void> _insertSubnote() async {
+    final c = _active;
+    if (c == null) return;
+    final store = context.read<NotesStore>();
+    final sub = await store.addNote(parentNoteId: widget.noteId, title: 'New subnote');
+    final index = c.selection.baseOffset.clamp(0, c.document.length - 1);
+    c.replaceText(index, 0, subnoteEmbed(sub.id), TextSelection.collapsed(offset: index + 1));
+    if (mounted) openSubnote(context, sub);
   }
+
+  Widget _toolbar(AppSettings settings, {required bool above}) => FormatToolbar(
+        controller: _active ?? _idle,
+        level: settings.level,
+        showLabels: settings.showToolbarLabels,
+        panelAbove: above,
+        onTable: _insertTable,
+        onImage: _insertImage,
+        onSubnote: _insertSubnote,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +172,6 @@ class _NotePageState extends State<NotePage> {
     final note = store.noteById(widget.noteId);
     if (note == null) return const SizedBox.shrink();
 
-    final subnotes = store.subnotesOf(note.id);
     final toolsOpen = _toolsOpen ?? !v.spec.chromeless;
     final mode = settings.toolbar;
     final docked = mode == ToolbarMode.docked && toolsOpen && !_markdown;
@@ -250,69 +249,24 @@ class _NotePageState extends State<NotePage> {
       ),
     );
 
-    // Mouse users double-click; touch screens and narrow windows open on one tap.
-    final doubleClick = isDesktopPlatform && !narrow;
-    final subnoteStrip = SizedBox(
-      height: v.minTap,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: narrow ? 8 : 24),
-        children: [
-          for (final sub in subnotes)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Tooltip(
-                message: doubleClick ? 'Double-click to open' : 'Tap to open',
-                child: VibeSelectable(
-                  selected: false,
-                  expand: false,
-                  onTap: doubleClick ? null : () => openSubnote(context, sub),
-                  onDoubleTap: doubleClick ? () => openSubnote(context, sub) : null,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.description_outlined, size: 16),
-                      const SizedBox(width: 6),
-                      Text(sub.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          TextButton.icon(
-            onPressed: () async {
-              final sub = await store.addNote(parentNoteId: note.id, title: 'New subnote');
-              if (context.mounted) openSubnote(context, sub);
-            },
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('Subnote'),
-          ),
-        ],
-      ),
-    );
-
     return Material(
       color: p.bg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           header,
-          if (!widget.embedded || subnotes.isNotEmpty) subnoteStrip,
           AnimatedSize(
             duration: v.duration,
             curve: v.curve,
             alignment: Alignment.topCenter,
             child: docked
                 ? Container(
-                    padding: EdgeInsets.symmetric(horizontal: narrow ? 4 : 16),
+                    padding: EdgeInsets.symmetric(horizontal: narrow ? 4 : 16, vertical: 2),
                     decoration: BoxDecoration(
                       color: p.chrome,
                       border: Border(top: BorderSide(color: p.line.withValues(alpha: 0.5))),
                     ),
-                    child: QuillSimpleToolbar(
-                      controller: _active ?? _idle,
-                      config: _toolbarConfig(settings.level),
-                    ),
+                    child: Align(alignment: Alignment.centerLeft, child: _toolbar(settings, above: false)),
                   )
                 : const SizedBox(width: double.infinity),
           ),
@@ -349,19 +303,15 @@ class _NotePageState extends State<NotePage> {
                           alignment: Alignment.bottomLeft,
                           child: Container(
                             constraints: const BoxConstraints(maxWidth: 860),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            padding: const EdgeInsets.all(4),
+                            clipBehavior: Clip.antiAlias,
                             decoration: BoxDecoration(
                               color: p.chrome,
                               borderRadius: v.shape,
                               border: Border.all(color: p.line, width: v.spec.borderWidth.clamp(1, 2).toDouble()),
                               boxShadow: v.shadowFor(lifted: true),
                             ),
-                            child: mode == ToolbarMode.floating
-                                ? QuillSimpleToolbar(
-                                    controller: _active ?? _idle,
-                                    config: _toolbarConfig(settings.level),
-                                  )
-                                : const SizedBox.shrink(),
+                            child: mode == ToolbarMode.floating ? _toolbar(settings, above: true) : const SizedBox.shrink(),
                           ),
                         ),
                       ),

@@ -1,3 +1,4 @@
+import 'package:flutter_quill/quill_delta.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zrnotes/data/markdown.dart';
 import 'package:zrnotes/theme/vibes.dart';
@@ -33,5 +34,17 @@ void main() {
   test('every vibe has a unique id', () {
     expect(vibes.map((v) => v.id).toSet().length, vibes.length);
     expect(vibeById('nope').id, 'default');
+  });
+
+  test('subnote links survive a Markdown round trip', () {
+    const id = '0b6f1c2e-1111-4222-8333-444455556666';
+    final delta = Delta()
+      ..insert('See ')
+      ..insert({subnoteEmbedType: id})
+      ..insert(' for details\n');
+    final text = deltaToMarkdown(delta);
+    expect(text, contains('[[subnote:$id]]'));
+    final back = markdownToDelta(text).toJson();
+    expect(back.any((op) => op['insert'] is Map && op['insert'][subnoteEmbedType] == id), isTrue);
   });
 }

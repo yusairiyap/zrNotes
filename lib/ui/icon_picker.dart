@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/vibes.dart';
+import 'widgets.dart';
 import 'section_style_dialog.dart' show sectionIcons;
 
 const _emoji = [
@@ -33,7 +34,7 @@ class NavIcon extends StatelessWidget {
 /// string for "use the default", or null when cancelled.
 Future<String?> pickIcon(BuildContext context, {String? current}) {
   final custom = TextEditingController();
-  return showDialog<String>(
+  return showVibeDialog<String>(
     context: context,
     builder: (context) {
       final v = VibeTheme.of(context);

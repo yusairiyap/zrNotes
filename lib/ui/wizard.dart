@@ -18,7 +18,6 @@ class SetupWizard extends StatefulWidget {
 
 class _SetupWizardState extends State<SetupWizard> {
   int _step = 0;
-  String _preset = 'balanced';
 
   static const _titles = ['How do you like to work?', 'Pick a vibe', 'Where should navigation sit?'];
 
@@ -34,22 +33,13 @@ class _SetupWizardState extends State<SetupWizard> {
           children: [
             for (final e in AppSettings.presets.entries)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: VibeSelectable(
-                  selected: _preset == e.key,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  onTap: () {
-                    setState(() => _preset = e.key);
-                    s.applyPreset(e.key);
-                  },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(e.value.split('.').first, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                      Text(e.value.substring(e.value.indexOf('.') + 1).trim(), style: const TextStyle(fontSize: 13)),
-                    ],
-                  ),
+                padding: const EdgeInsets.only(bottom: 10),
+                child: ChoiceCard(
+                  selected: s.currentPreset == e.key,
+                  icon: AppSettings.presetIcons[e.key],
+                  title: e.value.split('.').first,
+                  subtitle: e.value.substring(e.value.indexOf('.') + 1).trim(),
+                  onTap: () => s.applyPreset(e.key),
                 ),
               ),
           ],
@@ -57,19 +47,7 @@ class _SetupWizardState extends State<SetupWizard> {
       1 => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                for (final spec in vibes)
-                  VibeTile(
-                    spec: spec,
-                    dark: v.dark,
-                    selected: s.vibe == spec.id,
-                    onTap: () => s.update((x) => x.vibe = spec.id),
-                  ),
-              ],
-            ),
+            VibeGrid(selected: s.vibe, onPick: (id) => s.update((x) => x.vibe = id)),
             const SizedBox(height: 16),
             VibeSegmented<ThemeMode>(
               value: s.themeMode,

@@ -77,7 +77,9 @@ class DemoRepository extends Repository {
       width: 330,
       zIndex: 2,
       content: [
-        {'insert': 'Double-tap empty space to drop a new section. Drag its tab to move it.\n'},
+        {'insert': 'Double-tap empty space to drop a new section. Drag its tab to move it.\nSketches live in '},
+        {'insert': {'x-subnote': sub.id}},
+        {'insert': '\n'},
       ],
     ));
     add(Section(

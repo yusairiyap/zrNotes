@@ -1,0 +1,37 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:zrnotes/data/markdown.dart';
+import 'package:zrnotes/theme/vibes.dart';
+
+void main() {
+  test('Markdown survives a round trip through the editor format', () {
+    const source = '# Title\n- [x] done\n- [ ] todo\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\nplain **bold** text.';
+    final delta = markdownToDelta(source);
+    final back = deltaToMarkdown(delta);
+    expect(back, contains('# Title'));
+    expect(back, contains('- [x] done'));
+    expect(back, contains('- [ ] todo'));
+    expect(back, contains('| a | b |'));
+    expect(back, contains('plain **bold** text.'));
+  });
+
+  test('empty Markdown gives a valid empty document', () {
+    expect(markdownToDelta('   ').toJson(), [
+      {'insert': '\n'},
+    ]);
+  });
+
+  test('tables are parsed and written back', () {
+    final rows = parseMarkdownTable('| Task | Days |\n| --- | --- |\n| Canvas | 3 |\n| Popups |');
+    expect(rows, [
+      ['Task', 'Days'],
+      ['Canvas', '3'],
+      ['Popups', ''],
+    ]);
+    expect(writeMarkdownTable(rows), '| Task | Days |\n| --- | --- |\n| Canvas | 3 |\n| Popups |  |');
+  });
+
+  test('every vibe has a unique id', () {
+    expect(vibes.map((v) => v.id).toSet().length, vibes.length);
+    expect(vibeById('nope').id, 'default');
+  });
+}

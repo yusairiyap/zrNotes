@@ -8,6 +8,10 @@ import 'nav.dart';
 import 'widgets.dart';
 
 /// Sign in with email and password, create an account, or continue with Google.
+/// Where Supabase sends the user after sign-in: back to this page on the
+/// web, or into the app through its deep link elsewhere.
+String get _redirect => kIsWeb ? '${Uri.base.origin}${Uri.base.path}' : AppConfig.authRedirect;
+
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
 
@@ -79,7 +83,7 @@ class _AuthPageState extends State<AuthPage> {
         final res = await _db.auth.signUp(
           email: email,
           password: password,
-          emailRedirectTo: kIsWeb ? null : AppConfig.authRedirect,
+          emailRedirectTo: _redirect,
         );
         return res.session == null ? 'Check your inbox to confirm your email, then sign in.' : null;
       }
@@ -91,7 +95,7 @@ class _AuthPageState extends State<AuthPage> {
   Future<void> _google() => _run(() async {
         await _db.auth.signInWithOAuth(
           OAuthProvider.google,
-          redirectTo: kIsWeb ? null : AppConfig.authRedirect,
+          redirectTo: _redirect,
         );
         return null;
       });

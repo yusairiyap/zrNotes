@@ -17,6 +17,11 @@ flutter run -d windows                          # real sign-in and sync
 Builds for Windows (`.zip` and installer `.exe`) and Android (`.apk`) are
 attached to each run under the repository's **Actions** tab.
 
+The web version is published to GitHub Pages from `main` at
+`https://yusairiyap.github.io/zrNotes/`. This needs Settings → Pages →
+Source set to **GitHub Actions**, and that address added to Supabase under
+Authentication → URL Configuration → Redirect URLs.
+
 ## Setup that needs your accounts
 
 **Google sign-in.** Create an OAuth client in Google Cloud Console, then in

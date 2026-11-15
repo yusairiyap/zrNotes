@@ -101,3 +101,16 @@ triggers and publishes it to GitHub Pages from `main`. Android signing uses the 
 
 Mermaid diagram rendering, Android/iOS home-screen widgets, offline cache,
 Google sign-in on Windows (needs a deep-link handler), iOS build in CI.
+
+## Pull request descriptions
+
+Follow `.github/pull_request_template.md` (Description, Type of change,
+Changes made, How to test, Checklist, Related issues, Screenshots).
+
+- Describe the branch as a whole in its end state, broken down by feature
+  with a short heading each. Do not list fixes to things the same branch
+  introduced.
+- Whenever you push to a branch that has a PR, rewrite the description to
+  match the branch now.
+- Say plainly what was not run or not verified on a device rather than
+  ticking the box.

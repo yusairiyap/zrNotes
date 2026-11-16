@@ -1,23 +1,32 @@
 name: Build and Deploy Web
 
+# The site lives on the gh-pages branch:
+#   /            the live app, published from main
+#   /pr-<n>/     a preview of pull request <n>, removed when it closes
 on:
   pull_request:
+    types: [opened, synchronize, reopened, closed]
     branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
+  pull-requests: write
 
+# One deploy at a time, so two runs never push to gh-pages together.
 concurrency:
-  group: web-${{ github.ref }}
-  cancel-in-progress: true
+  group: web-deploy
+  cancel-in-progress: false
 
 jobs:
-  build-web:
+  deploy:
+    # Pull requests from forks get a read-only token, so they are skipped.
+    if: >
+      github.event.action != 'closed' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,27 +37,70 @@ jobs:
           flutter-version: 3.50.0
           cache: true
 
+      - name: Choose where this build goes
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "folder=pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+            echo "path=/${{ github.event.repository.name }}/pr-${{ github.event.number }}/" >> "$GITHUB_OUTPUT"
+          else
+            echo "folder=." >> "$GITHUB_OUTPUT"
+            echo "path=/${{ github.event.repository.name }}/" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 
-      # GitHub Pages serves the site under /<repo name>/.
       - name: Build web (release)
-        run: flutter build web --release --no-wasm-dry-run --base-href "/${{ github.event.repository.name }}/"
+        run: |
+          flutter build web --release --no-wasm-dry-run --base-href "${{ steps.target.outputs.path }}"
+          touch build/web/.nojekyll
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Publish to gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          path: build/web
+          branch: gh-pages
+          folder: build/web
+          target-folder: ${{ steps.target.outputs.folder }}
+          clean: true
+          # Publishing the live app must not wipe the previews.
+          clean-exclude: |
+            pr-*
+          commit-message: Deploy ${{ steps.target.outputs.folder }} from ${{ github.sha }}
 
-  # Pull requests only build; the site is published from main.
-  deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: build-web
+      - name: Post the preview link on the pull request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- web-preview -->';
+            const url = `https://${context.repo.owner}.github.io${{ toJSON(steps.target.outputs.path) }}`;
+            const body = `${marker}\n**Web preview:** ${url}\n\nBuilt from \`${context.sha.slice(0, 7)}\`. It can take a minute to refresh after a new push.`;
+            const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number });
+            const mine = comments.find(c => c.body && c.body.includes(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }
+
+  remove-preview:
+    if: >
+      github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Delete the preview folder
+        run: |
+          dir="pr-${{ github.event.number }}"
+          if [ -d "$dir" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git rm -r -q "$dir"
+            git commit -q -m "Remove preview $dir"
+            git push
+          fi

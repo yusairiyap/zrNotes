@@ -110,8 +110,9 @@ tool/                  icon source (icon.html) and renderer
 
 `.github/workflows/build-apk.yml` (analyze, test, signed APK) and
 `build-windows.yml` (zip + Inno Setup installer) run on pull requests, pushes
-to `main` and manually. `deploy-web.yml` builds the web app on the same
-triggers and publishes it to GitHub Pages from `main`. Android signing uses the secrets
+to `main` and manually. `deploy-web.yml` publishes the web app to the
+`gh-pages` branch: `main` goes to the site root, and every pull request gets
+a preview under `/pr-<n>/` (linked in a comment, removed when it closes). Android signing uses the secrets
 `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
 `ANDROID_KEY_PASSWORD`; without them the APK is debug-signed.
 

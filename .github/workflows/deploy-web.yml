@@ -74,7 +74,8 @@ jobs:
         with:
           script: |
             const marker = '<!-- web-preview -->';
-            const url = `https://${context.repo.owner}.github.io${{ toJSON(steps.target.outputs.path) }}`;
+            const path = ${{ toJSON(steps.target.outputs.path) }};
+            const url = `https://${context.repo.owner}.github.io${path}`;
             const body = `${marker}\n**Web preview:** ${url}\n\nBuilt from \`${context.sha.slice(0, 7)}\`. It can take a minute to refresh after a new push.`;
             const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number });
             const mine = comments.find(c => c.body && c.body.includes(marker));

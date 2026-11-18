@@ -12,6 +12,7 @@ import '../data/markdown.dart';
 import '../models.dart';
 import '../state/notes_store.dart';
 import '../theme/vibes.dart';
+import 'mermaid_embed.dart';
 import 'note_page.dart';
 import 'section_style_dialog.dart';
 import 'subnote_embed.dart';
@@ -476,7 +477,7 @@ class _SectionCardState extends State<SectionCard> {
             customStyleBuilder: (attr) => attr.key == Attribute.background.key
                 ? const TextStyle(color: Color(0xFF16181D))
                 : const TextStyle(),
-            embedBuilders: [...FlutterQuillEmbeds.defaultEditorBuilders(), const TableEmbedBuilder(), const SubnoteEmbedBuilder()],
+            embedBuilders: [...FlutterQuillEmbeds.defaultEditorBuilders(), const TableEmbedBuilder(), const SubnoteEmbedBuilder(), const MermaidEmbedBuilder()],
           ),
         ),
       );

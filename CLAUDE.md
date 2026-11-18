@@ -84,6 +84,12 @@ tool/                  icon source (icon.html) and renderer
 - **Subnotes** are notes with `parent_note_id`. They appear inside a section
   as an inline link (Quill embed `x-subnote`, data = note id, written as
   `[[subnote:<id>]]` in Markdown) and open in a popup or bottom sheet on tap.
+- **Mermaid diagrams** are a Quill embed `x-mermaid` (data = the Mermaid
+  text, written as a ```` ```mermaid ```` block in Markdown) drawn by
+  `lib/ui/mermaid_embed.dart`. The picture is a PNG from mermaid.ink, the
+  Mermaid project's free renderer, with the vibe's colours passed as an
+  `init` directive, so it needs a connection and the diagram text leaves the
+  device. Tap a diagram to edit it in a dialog with a live preview.
 - **Toolbar**: `lib/ui/format_toolbar.dart` is our own bar (not Quill's). The
   row shows the common tools in groups; the arrow opens a panel with every
   tool by category. Its buttons must not take focus from the editor.
@@ -118,7 +124,7 @@ a preview under `/pr-<n>/` (linked in a comment, removed when it closes). Androi
 
 ## Not built yet
 
-Mermaid diagram rendering, Android/iOS home-screen widgets, offline cache,
+Android/iOS home-screen widgets, offline cache,
 Google sign-in on Windows (needs a deep-link handler), iOS build in CI.
 
 ## Pull request descriptions

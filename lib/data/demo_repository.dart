@@ -93,6 +93,19 @@ class DemoRepository extends Repository {
         {'insert': 'A section with no title or tab.\n'},
       ],
     ));
+    add(Section(
+      id: newId(),
+      noteId: sprint.id,
+      title: 'Flow',
+      x: 70,
+      y: 560,
+      width: 430,
+      zIndex: 4,
+      content: [
+        {'insert': {'x-mermaid': 'flowchart LR\n  Idea --> Section --> Note\n  Note -.-> Subnote'}},
+        {'insert': '\n'},
+      ],
+    ));
   }
 
   @override

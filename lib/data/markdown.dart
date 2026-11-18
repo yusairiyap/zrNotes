@@ -6,6 +6,10 @@ import 'package:markdown_quill/markdown_quill.dart';
 /// Embed type of a subnote link inside a section. Its data is the subnote's id.
 const subnoteEmbedType = 'x-subnote';
 
+/// Embed type of a Mermaid diagram. Its data is the diagram's Mermaid text,
+/// written as a ```mermaid fenced block in Markdown.
+const mermaidEmbedType = 'x-mermaid';
+
 final _subnoteLink = RegExp(r'\[\[subnote:([0-9a-fA-F-]+)\]\]');
 
 /// Converts between the rich-text format the editor stores (a Quill "Delta")
@@ -21,6 +25,11 @@ String deltaToMarkdown(Delta delta) {
         EmbeddableTable.tableType: EmbeddableTable.toMdSyntax,
         // A subnote link is written as [[subnote:<id>]] so it survives the trip.
         subnoteEmbedType: (embed, out) => out.write('[[subnote:${embed.value.data}]]'),
+        mermaidEmbedType: (embed, out) => out
+          ..writeln('```mermaid')
+          ..writeln(embed.value.data)
+          ..writeln('```')
+          ..writeln(),
       },
       // Write text as typed. The default handler escapes every dot and dash.
       customContentHandler: (text, out) => out.write(text.value),
@@ -35,16 +44,42 @@ Delta markdownToDelta(String source) {
   final doc = md.Document(
     encodeHtml: false,
     extensionSet: md.ExtensionSet.gitHubFlavored,
-    blockSyntaxes: [const EmbeddableTableSyntax()],
+    blockSyntaxes: [const EmbeddableTableSyntax(), const _MermaidSyntax()],
   );
   final delta = MarkdownToDelta(
     markdownDocument: doc,
-    customElementToEmbeddable: {EmbeddableTable.tableType: EmbeddableTable.fromMdSyntax},
+    customElementToEmbeddable: {
+      EmbeddableTable.tableType: EmbeddableTable.fromMdSyntax,
+      mermaidEmbedType: (attrs) => BlockEmbed(mermaidEmbedType, attrs['data'] ?? ''),
+    },
   ).convert(source);
   if (delta.isEmpty) return Delta()..insert('\n');
   final last = delta.last.data;
   if (last is! String || !last.endsWith('\n')) delta.insert('\n');
   return _restoreSubnotes(delta);
+}
+
+/// A ```mermaid (or ~~~mermaid) fenced block, kept as a diagram instead of
+/// becoming a code block. Other fenced blocks are left to the default syntax.
+class _MermaidSyntax extends md.BlockSyntax {
+  const _MermaidSyntax();
+
+  @override
+  RegExp get pattern => RegExp(r'^ {0,3}(`{3,}|~{3,})\s*mermaid\s*$', caseSensitive: false);
+
+  @override
+  md.Node? parse(md.BlockParser parser) {
+    final fence = pattern.firstMatch(parser.current.content)!.group(1)!;
+    final close = RegExp('^ {0,3}${RegExp.escape(fence[0])}{${fence.length},}\\s*\$');
+    parser.advance();
+    final lines = <String>[];
+    while (!parser.isDone && !close.hasMatch(parser.current.content)) {
+      lines.add(parser.current.content);
+      parser.advance();
+    }
+    if (!parser.isDone) parser.advance(); // the closing fence
+    return md.Element.empty(mermaidEmbedType)..attributes['data'] = lines.join('\n');
+  }
 }
 
 /// Turns each [[subnote:<id>]] back into a subnote link.

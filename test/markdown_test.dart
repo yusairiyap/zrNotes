@@ -47,4 +47,22 @@ void main() {
     final back = markdownToDelta(text).toJson();
     expect(back.any((op) => op['insert'] is Map && op['insert'][subnoteEmbedType] == id), isTrue);
   });
+
+  test('Mermaid diagrams survive a Markdown round trip', () {
+    const source = 'flowchart LR\n  A[Start] --> B{Ok?}\n\n  B -->|yes| C';
+    final delta = Delta()
+      ..insert('Before\n')
+      ..insert({mermaidEmbedType: source})
+      ..insert('After\n');
+    final text = deltaToMarkdown(delta);
+    expect(text, contains('```mermaid\n$source\n```'));
+    final back = markdownToDelta(text).toJson();
+    expect(back.where((op) => op['insert'] is Map).map((op) => op['insert'][mermaidEmbedType]), [source]);
+    expect(deltaToMarkdown(Delta.fromJson(back)), text);
+  });
+
+  test('other fenced code blocks stay code', () {
+    final back = markdownToDelta('```dart\nvoid main() {}\n```').toJson();
+    expect(back.any((op) => op['insert'] is Map), isFalse);
+  });
 }

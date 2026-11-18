@@ -14,6 +14,7 @@ import '../state/settings.dart';
 import '../theme/vibes.dart';
 import 'canvas_view.dart';
 import 'format_toolbar.dart';
+import 'mermaid_embed.dart';
 import 'subnote_embed.dart';
 import 'widgets.dart';
 
@@ -126,6 +127,16 @@ class _NotePageState extends State<NotePage> {
     );
   }
 
+  /// Puts a starter diagram at the cursor and opens the diagram editor.
+  Future<void> _insertDiagram() async {
+    final c = _active;
+    if (c == null) return;
+    final source = await editMermaid(context, newDiagramSource);
+    if (source == null || source.trim().isEmpty) return;
+    final index = c.selection.baseOffset.clamp(0, c.document.length - 1);
+    c.replaceText(index, 0, mermaidEmbed(source), TextSelection.collapsed(offset: index + 1));
+  }
+
   Future<void> _insertImage() async {
     final c = _active;
     if (c == null) return;
@@ -159,6 +170,7 @@ class _NotePageState extends State<NotePage> {
         showLabels: settings.showToolbarLabels,
         panelAbove: above,
         onTable: _insertTable,
+        onDiagram: _insertDiagram,
         onImage: _insertImage,
         onSubnote: _insertSubnote,
       );

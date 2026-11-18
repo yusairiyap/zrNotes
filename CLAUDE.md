@@ -91,6 +91,10 @@ tool/                  icon source (icon.html) and renderer
   comfort options. Presets are full snapshots in `AppSettings._presetValues`
   and never touch the vibe. `currentPreset` is null when the user has gone
   custom. A new option that belongs to presets must be added to that map.
+- **Google sign-in on desktop** has no deep link: `lib/platform/desktop_oauth_io.dart`
+  listens on `127.0.0.1:43823` during sign-in and exchanges the PKCE code
+  itself. That URL is on the Supabase redirect allow list; changing the port
+  means changing the allow list too.
 - **Deletes** go through `NotesStore.removeFolder/removeNote/removeSection`,
   which play the exit animation (`Presence`) before deleting.
 - **Dialogs and menus**: use `showVibeDialog` and `showContextMenu` from
@@ -119,7 +123,7 @@ a preview under `/pr-<n>/` (linked in a comment, removed when it closes). Androi
 ## Not built yet
 
 Mermaid diagram rendering, Android/iOS home-screen widgets, offline cache,
-Google sign-in on Windows (needs a deep-link handler), iOS build in CI.
+iOS build in CI.
 
 ## Pull request descriptions
 

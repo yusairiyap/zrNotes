@@ -3,11 +3,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config.dart';
+import '../platform/desktop_oauth.dart';
 import '../theme/vibes.dart';
 import 'nav.dart';
 import 'widgets.dart';
 
 /// Sign in with email and password, create an account, or continue with Google.
+
 /// Where Supabase sends the user after sign-in: back to this page on the
 /// web, or into the app through its deep link elsewhere.
 String get _redirect => kIsWeb ? '${Uri.base.origin}${Uri.base.path}' : AppConfig.authRedirect;
@@ -26,6 +28,7 @@ class _AuthPageState extends State<AuthPage> {
   bool _busy = false;
   String? _message;
   bool _isError = false;
+  bool _inBrowser = false;
 
   SupabaseClient get _db => Supabase.instance.client;
 
@@ -93,12 +96,27 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Future<void> _google() => _run(() async {
+        if (!kIsWeb && DesktopOAuth.supported) {
+          setState(() => _inBrowser = true);
+          try {
+            await DesktopOAuth.signIn(_db, OAuthProvider.google);
+          } finally {
+            if (mounted) setState(() => _inBrowser = false);
+          }
+          return null;
+        }
         await _db.auth.signInWithOAuth(
           OAuthProvider.google,
           redirectTo: _redirect,
         );
         return null;
       });
+
+  @override
+  void deactivate() {
+    if (_inBrowser) DesktopOAuth.cancel();
+    super.deactivate();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +144,21 @@ class _AuthPageState extends State<AuthPage> {
                     icon: const Icon(Icons.g_mobiledata, size: 26),
                     label: const Text('Continue with Google'),
                   ),
+                  if (_inBrowser)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Finish signing in in your browser.',
+                              style: TextStyle(color: p.muted, fontSize: 13),
+                            ),
+                          ),
+                          TextButton(onPressed: DesktopOAuth.cancel, child: const Text('Cancel')),
+                        ],
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Row(

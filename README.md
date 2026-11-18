@@ -30,9 +30,10 @@ added to Supabase under Authentication → URL Configuration → Redirect URLs.
 
 **Google sign-in.** Create an OAuth client in Google Cloud Console, then in
 the Supabase dashboard open Authentication → Providers → Google and paste the
-client id and secret. Add `dev.zr.zrnotes://login-callback` under
-Authentication → URL Configuration → Redirect URLs. Email sign-in works
-without any of this.
+client id and secret. Under Authentication → URL Configuration → Redirect URLs add
+`dev.zr.zrnotes://login-callback` (Android and iOS) and
+`http://127.0.0.1:43823/**` (Windows: the app listens on that local port
+while you sign in in the browser). Email sign-in works without any of this.
 
 **Signed Android builds.** Create a keystore once:
 

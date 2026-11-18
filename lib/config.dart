@@ -19,5 +19,11 @@ class AppConfig {
 
   /// Deep link the OAuth (Google) flow returns to on mobile.
   static const authRedirect = 'dev.zr.zrnotes://login-callback';
+
+  /// Desktop builds have no deep link, so Google returns to a local port the
+  /// app listens on during sign-in. This URL must be on the Supabase redirect
+  /// allow list.
+  static const desktopAuthPort = 43823;
+  static const desktopAuthRedirect = 'http://127.0.0.1:$desktopAuthPort/auth/callback';
   static const imageBucket = 'note-images';
 }

@@ -91,6 +91,13 @@ tool/                  icon source (icon.html) and renderer
   comfort options. Presets are full snapshots in `AppSettings._presetValues`
   and never touch the vibe. `currentPreset` is null when the user has gone
   custom. A new option that belongs to presets must be added to that map.
+- **Home-screen widgets** (Android only): `lib/platform/home_widgets.dart`
+  copies the 5 newest notes (pinned first) into the `home_widget` key/value
+  store and asks Android to redraw; Kotlin providers `RecentNotesWidget` and
+  `QuickAddWidget` (with layouts in `res/layout`) only draw that data. Taps
+  open `zrnotes://note?id=<id>` or `zrnotes://new`. Changing the row count
+  means editing `HomeWidgets.rows`, `recent_notes_widget` layout and the Kotlin
+  `ROW_IDS` together.
 - **Deletes** go through `NotesStore.removeFolder/removeNote/removeSection`,
   which play the exit animation (`Presence`) before deleting.
 - **Dialogs and menus**: use `showVibeDialog` and `showContextMenu` from
@@ -118,7 +125,7 @@ a preview under `/pr-<n>/` (linked in a comment, removed when it closes). Androi
 
 ## Not built yet
 
-Mermaid diagram rendering, Android/iOS home-screen widgets, offline cache,
+Mermaid diagram rendering, iOS home-screen widgets, offline cache,
 Google sign-in on Windows (needs a deep-link handler), iOS build in CI.
 
 ## Pull request descriptions

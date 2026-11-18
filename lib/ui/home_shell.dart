@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../platform/home_widgets.dart';
 import '../state/notes_store.dart';
 import '../state/settings.dart';
 import '../theme/vibes.dart';
@@ -22,11 +23,22 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   final _scaffold = GlobalKey<ScaffoldState>();
+  late final HomeWidgets _widgets;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => context.read<NotesStore>().refresh());
+    _widgets = HomeWidgets(context.read<NotesStore>());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotesStore>().refresh();
+      _widgets.start();
+    });
+  }
+
+  @override
+  void dispose() {
+    _widgets.dispose();
+    super.dispose();
   }
 
   @override

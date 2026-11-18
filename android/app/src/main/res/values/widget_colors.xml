@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widget palette: paper and ink with the highlighter accent. -->
+<resources>
+    <color name="widget_bg">#FAFAF5</color>
+    <color name="widget_ink">#16181D</color>
+    <color name="widget_ink_soft">#6B6F76</color>
+    <color name="widget_accent">#E4EE5B</color>
+    <color name="widget_accent_ink">#16181D</color>
+    <color name="widget_divider">#1F16181D</color>
+</resources>

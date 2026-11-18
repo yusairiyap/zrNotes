@@ -15,8 +15,40 @@ enum MainView { note, overview, mindMap }
 /// Edits are optimistic: the UI changes first, then the save runs. Saves that
 /// fire often (typing, dragging) are debounced per row.
 class NotesStore extends ChangeNotifier {
-  NotesStore(this._repo);
+  NotesStore(this._repo) {
+    _repo.status.addListener(_onSync);
+  }
   final Repository _repo;
+
+  /// True while the server cannot be reached. Edits still save on the device.
+  bool get offline => _repo.status.offline;
+
+  /// Edits saved on the device that have not reached the server yet.
+  int get pendingChanges => _repo.status.pending;
+
+  bool _wasOffline = false;
+
+  void _onSync() {
+    final s = _repo.status;
+    if (s.problem != null) {
+      error = 'Could not save: ${s.problem}';
+      s.problem = null;
+    }
+    // Back online: pick up whatever changed on other devices meanwhile.
+    final back = _wasOffline && !s.offline;
+    _wasOffline = s.offline;
+    if (back && !loading) {
+      refresh();
+    } else {
+      notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _repo.status.removeListener(_onSync);
+    super.dispose();
+  }
 
   List<Folder> folders = [];
   List<Note> notes = [];

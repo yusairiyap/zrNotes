@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -15,6 +15,9 @@ class Repository {
 
   String newId() => _uuid.v4();
 
+  /// Connection state for the UI. Only the offline layer ever changes it.
+  final SyncStatus status = SyncStatus();
+
   Future<List<Folder>> fetchFolders() async {
     final rows = await _db.from('folders').select().order('sort_order').order('created_at');
     return rows.map(Folder.fromRow).toList();
@@ -27,6 +30,12 @@ class Repository {
 
   Future<List<Section>> fetchSections(String noteId) async {
     final rows = await _db.from('sections').select().eq('note_id', noteId).order('z_index');
+    return rows.map(Section.fromRow).toList();
+  }
+
+  /// Every section of every note, so notes can be read offline later.
+  Future<List<Section>> fetchAllSections() async {
+    final rows = await _db.from('sections').select().order('z_index');
     return rows.map(Section.fromRow).toList();
   }
 
@@ -66,5 +75,23 @@ class Repository {
         .from(AppConfig.imageBucket)
         .uploadBinary(path, bytes, fileOptions: FileOptions(contentType: mime));
     return _db.storage.from(AppConfig.imageBucket).getPublicUrl(path);
+  }
+}
+
+/// Whether the server can be reached and how many local changes still wait
+/// to be sent. [problem] holds a change the server refused, once.
+class SyncStatus extends ChangeNotifier {
+  bool offline = false;
+  int pending = 0;
+  String? problem;
+
+  void update({bool? offline, int? pending, String? problem}) {
+    final changed = (offline != null && offline != this.offline) ||
+        (pending != null && pending != this.pending) ||
+        problem != null;
+    this.offline = offline ?? this.offline;
+    this.pending = pending ?? this.pending;
+    this.problem = problem ?? this.problem;
+    if (changed) notifyListeners();
   }
 }

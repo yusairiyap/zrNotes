@@ -216,7 +216,17 @@ class _NotePageState extends State<NotePage> {
               ],
             ),
           ),
-          if (store.saving || store.loading)
+          if (store.offline)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Tooltip(
+                message: store.pendingChanges > 0
+                    ? 'Offline. ${store.pendingChanges} change${store.pendingChanges == 1 ? '' : 's'} will sync when you are back online.'
+                    : 'Offline. Edits are saved on this device.',
+                child: Icon(Icons.cloud_off_outlined, size: 16, color: p.muted),
+              ),
+            )
+          else if (store.saving || store.loading)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Tooltip(

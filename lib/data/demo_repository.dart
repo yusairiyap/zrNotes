@@ -102,6 +102,8 @@ class DemoRepository extends Repository {
   @override
   Future<List<Section>> fetchSections(String noteId) async =>
       _sections.values.where((s) => s.noteId == noteId).toList();
+  @override
+  Future<List<Section>> fetchAllSections() async => _sections.values.toList();
 
   @override
   Future<void> upsertFolder(Folder f) async => _folders[f.id] = f;

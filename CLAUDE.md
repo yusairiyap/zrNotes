@@ -47,7 +47,8 @@ lib/
   main.dart            app start, providers, AuthGate
   config.dart          Supabase URL/key (--dart-define overridable), DEMO flag
   models.dart          Folder, Note, Section (+ fromRow/toRow)
-  data/                repository.dart (Supabase), demo_repository.dart, markdown.dart
+  data/                repository.dart (Supabase), offline_repository.dart (cache +
+                       outbox), local_cache.dart (Hive), demo_repository.dart, markdown.dart
   state/               notes_store.dart (data + saving), settings.dart (every option)
   theme/               vibes.dart (the six vibes), legacy_theme.dart
   platform/desktop.dart  Windows tray, close-to-tray, compact mode
@@ -68,6 +69,14 @@ tool/                  icon source (icon.html) and renderer
   `content`), `user_settings` (one JSON blob). Every table has RLS limiting
   rows to `auth.uid()`. Images go to the public `note-images` bucket under
   `<user id>/<uuid>.<ext>`.
+- **Offline**: `OfflineRepository` wraps `Repository`. Every write goes to a
+  per-user Hive box (IndexedDB on the web) and an ordered outbox, then is sent;
+  if the server is unreachable the outbox retries with backoff (5 s up to 1 min)
+  and the store refreshes when it drains. Reads try the server and fall back to
+  the cache; rows with waiting changes keep the local version (last edit wins).
+  Postgres errors (5-digit codes) drop the change and show an error; network,
+  JWT and 5xx errors keep it. Image upload still needs a connection. A new
+  table needs a case in `_send` and its cache handling.
 - **Schema changes**: add a new file in `supabase/migrations/` and apply the
   same SQL to the hosted project. Never edit an applied migration.
 - **Vibes**: a vibe is a `VibeSpec` (fonts, palettes, radius, borders, tab
@@ -118,7 +127,7 @@ a preview under `/pr-<n>/` (linked in a comment, removed when it closes). Androi
 
 ## Not built yet
 
-Mermaid diagram rendering, Android/iOS home-screen widgets, offline cache,
+Mermaid diagram rendering, Android/iOS home-screen widgets,
 Google sign-in on Windows (needs a deep-link handler), iOS build in CI.
 
 ## Pull request descriptions

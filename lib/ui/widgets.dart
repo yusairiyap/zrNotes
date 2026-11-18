@@ -258,7 +258,7 @@ class ZrLogo extends StatelessWidget {
 
 Future<String?> promptText(BuildContext context, {required String title, String initial = '', String hint = ''}) {
   final controller = TextEditingController(text: initial);
-  return showDialog<String>(
+  return showVibeDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),
@@ -277,7 +277,7 @@ Future<String?> promptText(BuildContext context, {required String title, String 
 }
 
 Future<bool> confirm(BuildContext context, {required String title, required String message, String action = 'Delete'}) async {
-  final ok = await showDialog<bool>(
+  final ok = await showVibeDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),
@@ -289,4 +289,174 @@ Future<bool> confirm(BuildContext context, {required String title, required Stri
     ),
   );
   return ok ?? false;
+}
+
+/// Opens a dialog that grows and fades in at the vibe's speed.
+Future<T?> showVibeDialog<T>({required BuildContext context, required WidgetBuilder builder}) {
+  final v = VibeTheme.of(context);
+  return showGeneralDialog<T>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Close',
+    barrierColor: Colors.black54,
+    transitionDuration: v.reduceMotion ? Duration.zero : v.duration + const Duration(milliseconds: 60),
+    pageBuilder: (context, _, _) => SafeArea(child: Builder(builder: builder)),
+    transitionBuilder: (context, animation, _, child) {
+      final t = CurvedAnimation(parent: animation, curve: v.curve, reverseCurve: Curves.easeIn);
+      return FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(scale: Tween(begin: 0.94, end: 1.0).animate(t), child: child),
+      );
+    },
+  );
+}
+
+/// A menu at the pointer, used for right-click and long-press.
+Future<String?> showContextMenu(BuildContext context, Offset at, Map<String, (String, IconData)> items) {
+  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+  return showMenu<String>(
+    context: context,
+    position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
+    items: [
+      for (final e in items.entries)
+        PopupMenuItem(
+          value: e.key,
+          child: Row(children: [Icon(e.value.$2, size: 18), const SizedBox(width: 12), Text(e.value.$1)]),
+        ),
+    ],
+  );
+}
+
+/// A bordered card for picking one of a few options. The chosen card gets the
+/// accent border, a highlight wash and a tick, in every vibe.
+class ChoiceCard extends StatefulWidget {
+  const ChoiceCard({
+    super.key,
+    required this.selected,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+    this.icon,
+  });
+  final bool selected;
+  final String title;
+  final String? subtitle;
+  final IconData? icon;
+  final VoidCallback onTap;
+
+  @override
+  State<ChoiceCard> createState() => _ChoiceCardState();
+}
+
+class _ChoiceCardState extends State<ChoiceCard> {
+  bool _hover = false;
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VibeTheme.of(context);
+    final p = v.p;
+    final sel = widget.selected;
+    final fg = sel ? p.onHighlight : p.ink;
+    return Semantics(
+      button: true,
+      selected: sel,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _down = true),
+          onTapCancel: () => setState(() => _down = false),
+          onTapUp: (_) => setState(() => _down = false),
+          onTap: widget.onTap,
+          child: AnimatedScale(
+            scale: _down && !v.reduceMotion ? 0.98 : 1,
+            duration: const Duration(milliseconds: 90),
+            child: AnimatedContainer(
+              duration: v.duration,
+              curve: v.curve,
+              constraints: BoxConstraints(minHeight: v.minTap + 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: sel ? p.highlight : (_hover ? p.ink.withValues(alpha: 0.05) : p.surface),
+                borderRadius: BorderRadius.circular(v.radius.clamp(4, 16)),
+                border: Border.all(color: sel ? p.accent : p.line.withValues(alpha: 0.55), width: sel ? 2 : 1),
+              ),
+              child: Row(
+                children: [
+                  if (widget.icon != null)
+                    Padding(padding: const EdgeInsets.only(right: 12), child: Icon(widget.icon, size: 22, color: fg)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(widget.title, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: fg)),
+                        if (widget.subtitle != null)
+                          Text(widget.subtitle!, style: TextStyle(fontSize: 13, color: fg.withValues(alpha: 0.85))),
+                      ],
+                    ),
+                  ),
+                  AnimatedScale(
+                    scale: sel ? 1 : 0,
+                    duration: v.duration,
+                    curve: v.curve,
+                    child: Icon(Icons.check_circle, size: 20, color: fg),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Animates its child in when it first appears and out when [removing] turns
+/// true. With an [axis] the child grows and collapses along it (list rows);
+/// without one it scales (cards on the canvas).
+class Presence extends StatefulWidget {
+  const Presence({super.key, required this.child, this.removing = false, this.axis});
+  final Widget child;
+  final bool removing;
+  final Axis? axis;
+
+  @override
+  State<Presence> createState() => _PresenceState();
+}
+
+class _PresenceState extends State<Presence> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
+
+  @override
+  void initState() {
+    super.initState();
+    widget.removing ? _c.value = 0 : _c.forward();
+  }
+
+  @override
+  void didUpdateWidget(Presence old) {
+    super.didUpdateWidget(old);
+    if (widget.removing != old.removing) widget.removing ? _c.reverse() : _c.forward();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final v = VibeTheme.of(context);
+    if (v.reduceMotion) return widget.child;
+    final t = CurvedAnimation(parent: _c, curve: v.curve, reverseCurve: Curves.easeIn);
+    final faded = FadeTransition(opacity: _c, child: widget.child);
+    if (widget.axis != null) {
+      return SizeTransition(sizeFactor: t, axis: widget.axis!, alignment: Alignment.topLeft, child: faded);
+    }
+    return ScaleTransition(scale: Tween(begin: 0.9, end: 1.0).animate(t), child: faded);
+  }
 }

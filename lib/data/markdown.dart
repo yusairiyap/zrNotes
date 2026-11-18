@@ -3,6 +3,11 @@ import 'package:flutter_quill/quill_delta.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:markdown_quill/markdown_quill.dart';
 
+/// Embed type of a subnote link inside a section. Its data is the subnote's id.
+const subnoteEmbedType = 'x-subnote';
+
+final _subnoteLink = RegExp(r'\[\[subnote:([0-9a-fA-F-]+)\]\]');
+
 /// Converts between the rich-text format the editor stores (a Quill "Delta")
 /// and GitLab/GitHub-flavoured Markdown.
 ///
@@ -12,7 +17,11 @@ import 'package:markdown_quill/markdown_quill.dart';
 String deltaToMarkdown(Delta delta) {
   try {
     return DeltaToMarkdown(
-      customEmbedHandlers: {EmbeddableTable.tableType: EmbeddableTable.toMdSyntax},
+      customEmbedHandlers: {
+        EmbeddableTable.tableType: EmbeddableTable.toMdSyntax,
+        // A subnote link is written as [[subnote:<id>]] so it survives the trip.
+        subnoteEmbedType: (embed, out) => out.write('[[subnote:${embed.value.data}]]'),
+      },
       // Write text as typed. The default handler escapes every dot and dash.
       customContentHandler: (text, out) => out.write(text.value),
     ).convert(delta).trimRight();
@@ -35,7 +44,27 @@ Delta markdownToDelta(String source) {
   if (delta.isEmpty) return Delta()..insert('\n');
   final last = delta.last.data;
   if (last is! String || !last.endsWith('\n')) delta.insert('\n');
-  return delta;
+  return _restoreSubnotes(delta);
+}
+
+/// Turns each [[subnote:<id>]] back into a subnote link.
+Delta _restoreSubnotes(Delta delta) {
+  final out = Delta();
+  for (final op in delta.toList()) {
+    final data = op.data;
+    if (data is! String || !data.contains('[[subnote:')) {
+      out.push(op);
+      continue;
+    }
+    var at = 0;
+    for (final m in _subnoteLink.allMatches(data)) {
+      if (m.start > at) out.insert(data.substring(at, m.start), op.attributes);
+      out.insert({subnoteEmbedType: m.group(1)});
+      at = m.end;
+    }
+    if (at < data.length) out.insert(data.substring(at), op.attributes);
+  }
+  return out;
 }
 
 /// A Markdown table split into rows of cells (first row is the header).

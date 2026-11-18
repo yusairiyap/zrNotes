@@ -12,6 +12,7 @@ import '../models.dart';
 import '../state/notes_store.dart';
 import '../state/settings.dart';
 import '../theme/vibes.dart';
+import 'note_page.dart';
 import 'section_card.dart';
 import 'widgets.dart';
 
@@ -42,7 +43,10 @@ class CanvasView extends StatefulWidget {
   State<CanvasView> createState() => _CanvasViewState();
 }
 
-class _CanvasViewState extends State<CanvasView> {
+class _CanvasViewState extends State<CanvasView> with SingleTickerProviderStateMixin {
+  late final AnimationController _fly = AnimationController(vsync: this, duration: const Duration(milliseconds: 380));
+  Animation<Matrix4>? _flight;
+
   final _transform = TransformationController();
   bool _panEnabled = true;
   double _scale = 1;
@@ -54,10 +58,56 @@ class _CanvasViewState extends State<CanvasView> {
       final s = _transform.value.getMaxScaleOnAxis();
       if ((s - _scale).abs() > 0.001) setState(() => _scale = s);
     });
+    _fly.addListener(() {
+      final f = _flight;
+      if (f != null) _transform.value = f.value;
+    });
+  }
+
+  /// Glides the view so [target] sits near the top left at normal size.
+  void _flyTo(Section target) {
+    final end = Matrix4.identity()..setTranslationRaw(-(target.x - 48), -(target.y - 40), 0);
+    if (VibeTheme.of(context).reduceMotion) {
+      _transform.value = end;
+      return;
+    }
+    _flight = Matrix4Tween(begin: _transform.value, end: end).animate(CurvedAnimation(parent: _fly, curve: Curves.easeInOutCubic));
+    _fly.forward(from: 0);
+  }
+
+  Future<void> _addSection(Offset scene) async {
+    final store = context.read<NotesStore>();
+    final x = (scene.dx - 20).clamp(0.0, _sceneWidth - 400);
+    final y = (scene.dy - 46).clamp(0.0, _sceneHeight - 200);
+    await store.addSection(widget.noteId, x, y);
+  }
+
+  /// The right-click (or long-press) menu of the empty page.
+  Future<void> _pageMenu(Offset global, Offset scene) async {
+    final choice = await showContextMenu(context, global, const {
+      'section': ('New section here', Icons.add_box_outlined),
+      'subnote': ('New subnote here', Icons.note_add_outlined),
+      'reset': ('Zoom to 100%', Icons.center_focus_strong_outlined),
+    });
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case 'section':
+        await _addSection(scene);
+      case 'subnote':
+        await addSubnoteSection(
+          context,
+          widget.noteId,
+          (scene.dx - 20).clamp(0.0, _sceneWidth - 400),
+          (scene.dy - 46).clamp(0.0, _sceneHeight - 200),
+        );
+      case 'reset':
+        _transform.value = Matrix4.identity();
+    }
   }
 
   @override
   void dispose() {
+    _fly.dispose();
     _transform.dispose();
     super.dispose();
   }
@@ -135,6 +185,18 @@ class _CanvasViewState extends State<CanvasView> {
     final sections = [...store.sectionsOf(widget.noteId)]..sort((a, b) => a.zIndex.compareTo(b.zIndex));
     final summary = settings.zoomOutSummary && _scale < 0.45;
 
+    // The navigation pane asked to jump to one of this note's sections.
+    final wanted = store.focusSectionId;
+    if (wanted != null) {
+      final target = sections.where((e) => e.id == wanted).firstOrNull;
+      if (target != null) {
+        store.focusSectionId = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _flyTo(target);
+        });
+      }
+    }
+
     if (!store.sectionsLoaded(widget.noteId)) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -172,12 +234,10 @@ class _CanvasViewState extends State<CanvasView> {
                           FocusManager.instance.primaryFocus?.unfocus();
                           widget.onBlur();
                         },
-                        onDoubleTapDown: (d) async {
-                          final x = (d.localPosition.dx - 20).clamp(0.0, _sceneWidth - 400);
-                          final y = (d.localPosition.dy - 46).clamp(0.0, _sceneHeight - 200);
-                          await store.addSection(widget.noteId, x, y);
-                        },
+                        onDoubleTapDown: (d) => _addSection(d.localPosition),
                         onDoubleTap: () {},
+                        onSecondaryTapUp: (d) => _pageMenu(d.globalPosition, d.localPosition),
+                        onLongPressStart: (d) => _pageMenu(d.globalPosition, d.localPosition),
                         child: RepaintBoundary(
                           child: CustomPaint(
                             // Zoomed far out the pattern turns to noise, so it is dropped.
@@ -191,11 +251,14 @@ class _CanvasViewState extends State<CanvasView> {
                       ),
                     ),
                     for (final Section s in sections)
+                      // Keyed here so a section keeps its editor (and the cursor)
+                      // when bringing it to the front reorders the stack.
                       Positioned(
+                        key: ValueKey(s.id),
                         left: s.x,
                         top: s.y,
-                        child: Appear(
-                          key: ValueKey(s.id),
+                        child: Presence(
+                          removing: store.removing.contains(s.id),
                           child: SectionCard(
                             section: s,
                             markdownMode: widget.markdownMode,

@@ -17,10 +17,14 @@ flutter run -d windows                          # real sign-in and sync
 Builds for Windows (`.zip` and installer `.exe`) and Android (`.apk`) are
 attached to each run under the repository's **Actions** tab.
 
-The web version is published to GitHub Pages from `main` at
-`https://yusairiyap.github.io/zrNotes/`. This needs Settings → Pages →
-Source set to **GitHub Actions**, and that address added to Supabase under
-Authentication → URL Configuration → Redirect URLs.
+The web version is published from `main` to
+`https://yusairiyap.github.io/zrNotes/`. Every pull request also gets a
+preview at `https://yusairiyap.github.io/zrNotes/pr-<number>/`, linked in a
+comment on the pull request and removed when it closes.
+
+This needs Settings → Pages → Source set to **Deploy from a branch**, branch
+`gh-pages`, folder `/ (root)`, and `https://yusairiyap.github.io/zrNotes/**`
+added to Supabase under Authentication → URL Configuration → Redirect URLs.
 
 ## Setup that needs your accounts
 

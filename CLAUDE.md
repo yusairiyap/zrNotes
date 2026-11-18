@@ -34,6 +34,9 @@ Pinned to Flutter 3.50.0 (stable). CI pins the same version.
 - `appflowy_editor` does not compile on Flutter 3.50. The editor is
   `flutter_quill`; tables are a custom embed (`lib/ui/table_embed.dart`).
 - `desktop_drop` must stay below 0.9 (conflicts with `file_picker`).
+- In the canvas `Stack`, the key of a section must sit on its `Positioned`.
+  Bringing a section to the front reorders the stack; without the key the
+  editor is rebuilt and the cursor is lost.
 - Markdown round-trips lose colour and font size, so a section is only
   converted back from Markdown when its Markdown text was actually edited.
 
@@ -49,7 +52,8 @@ lib/
   theme/               vibes.dart (the six vibes), legacy_theme.dart
   platform/desktop.dart  Windows tray, close-to-tray, compact mode
   ui/                  home_shell, nav, note_page, canvas_view, section_card,
-                       overview_view, mindmap_view, settings_page, wizard, auth_page
+                       format_toolbar, subnote_embed, overview_view, mindmap_view,
+                       settings_page, wizard, auth_page
 supabase/migrations/   SQL already applied to the hosted project
 tool/                  icon source (icon.html) and renderer
 ```
@@ -77,6 +81,20 @@ tool/                  icon source (icon.html) and renderer
 - **Canvas**: `InteractiveViewer` over a 6000×4200 scene. Scroll pans,
   Ctrl+scroll and pinch zoom. Sections drag by their tab. Below 45% zoom
   sections collapse to title + summary.
+- **Subnotes** are notes with `parent_note_id`. They appear inside a section
+  as an inline link (Quill embed `x-subnote`, data = note id, written as
+  `[[subnote:<id>]]` in Markdown) and open in a popup or bottom sheet on tap.
+- **Toolbar**: `lib/ui/format_toolbar.dart` is our own bar (not Quill's). The
+  row shows the common tools in groups; the arrow opens a panel with every
+  tool by category. Its buttons must not take focus from the editor.
+- **Presets vs vibes**: a vibe is the look; a preset is which tools show plus
+  comfort options. Presets are full snapshots in `AppSettings._presetValues`
+  and never touch the vibe. `currentPreset` is null when the user has gone
+  custom. A new option that belongs to presets must be added to that map.
+- **Deletes** go through `NotesStore.removeFolder/removeNote/removeSection`,
+  which play the exit animation (`Presence`) before deleting.
+- **Dialogs and menus**: use `showVibeDialog` and `showContextMenu` from
+  `widgets.dart`. On the web the browser's own right-click menu is disabled.
 - **Settings**: every option is a field on `AppSettings`, saved locally and
   synced to `user_settings`. A new option needs: the field, `toJson`/`fromJson`,
   and a control in `settings_page.dart`. Presets live in the same file.
@@ -92,8 +110,9 @@ tool/                  icon source (icon.html) and renderer
 
 `.github/workflows/build-apk.yml` (analyze, test, signed APK) and
 `build-windows.yml` (zip + Inno Setup installer) run on pull requests, pushes
-to `main` and manually. `deploy-web.yml` builds the web app on the same
-triggers and publishes it to GitHub Pages from `main`. Android signing uses the secrets
+to `main` and manually. `deploy-web.yml` publishes the web app to the
+`gh-pages` branch: `main` goes to the site root, and every pull request gets
+a preview under `/pr-<n>/` (linked in a comment, removed when it closes). Android signing uses the secrets
 `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
 `ANDROID_KEY_PASSWORD`; without them the APK is debug-signed.
 

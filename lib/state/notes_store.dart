@@ -27,6 +27,32 @@ class NotesStore extends ChangeNotifier {
 
   /// The section that was just added, so its editor can take the cursor.
   String? newSectionId;
+
+  /// A section the canvas should scroll to (set from the navigation pane).
+  String? focusSectionId;
+
+  /// Ids of folders, notes and sections that are playing their exit
+  /// animation. The row or card fades out first, then the delete runs.
+  final Set<String> removing = {};
+  static const _exit = Duration(milliseconds: 210);
+
+  void _removeAnimated(String id, VoidCallback delete) {
+    if (!removing.add(id)) return;
+    notifyListeners();
+    Timer(_exit, () {
+      removing.remove(id);
+      delete();
+    });
+  }
+
+  void removeFolder(Folder f) => _removeAnimated(f.id, () => deleteFolder(f));
+  void removeNote(Note n) => _removeAnimated(n.id, () => deleteNote(n));
+  void removeSection(Section s) => _removeAnimated(s.id, () => deleteSection(s));
+
+  void focusSection(Section s) {
+    focusSectionId = s.id;
+    notifyListeners();
+  }
   MainView view = MainView.note;
   bool loading = false;
   bool saving = false;
@@ -284,17 +310,18 @@ class NotesStore extends ChangeNotifier {
 
   // ---- sections ----------------------------------------------------------
 
-  Future<Section> addSection(String noteId, double x, double y) async {
+  Future<Section> addSection(String noteId, double x, double y, {List<dynamic>? content, bool focus = true}) async {
     final list = _sections.putIfAbsent(noteId, () => []);
     final s = Section(
       id: _repo.newId(),
       noteId: noteId,
       x: x,
       y: y,
+      content: content,
       zIndex: list.isEmpty ? 0 : list.map((e) => e.zIndex).reduce((a, b) => a > b ? a : b) + 1,
     );
     list.add(s);
-    newSectionId = s.id;
+    if (focus) newSectionId = s.id;
     notifyListeners();
     await _now(() => _repo.upsertSection(s));
     return s;
@@ -343,6 +370,26 @@ class NotesStore extends ChangeNotifier {
       notifyListeners();
       _debounce('note:${note.id}', () => _repo.upsertNote(note));
     }
+  }
+
+  /// A copy of [s], placed a little down and to the right of it.
+  Future<Section> duplicateSection(Section s) async {
+    final copy = await addSection(s.noteId, s.x + 32, s.y + 32, content: s.content, focus: false);
+    copy
+      ..title = s.title
+      ..headerKind = s.headerKind
+      ..headerValue = s.headerValue
+      ..color = s.color
+      ..width = s.width;
+    updateSection(copy);
+    return copy;
+  }
+
+  /// The name the navigation shows for a section: its title, or "Canvas n".
+  String sectionLabel(Section s) {
+    if (s.title.trim().isNotEmpty) return s.title;
+    final ordered = [...sectionsOf(s.noteId)]..sort((a, b) => a.y != b.y ? a.y.compareTo(b.y) : a.x.compareTo(b.x));
+    return 'Canvas ${ordered.indexOf(s) + 1}';
   }
 
   void bringToFront(Section s) {

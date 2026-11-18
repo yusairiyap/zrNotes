@@ -46,7 +46,7 @@ const _quickEmoji = ['📌', '⭐', '💡', '✅', '🔥', '🎯', '📚', '🛒
 /// The popup for a section's title, header mark (icon, emoji or picture) and
 /// paper colour. Everything in it is optional.
 Future<void> showSectionStyleDialog(BuildContext context, Section section) {
-  return showDialog<void>(
+  return showVibeDialog<void>(
     context: context,
     builder: (_) => _SectionStyleDialog(section: section),
   );

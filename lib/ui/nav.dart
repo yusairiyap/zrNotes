@@ -29,7 +29,7 @@ Future<void> _newFolder(BuildContext context, {String? parentId}) async {
 
 Future<void> _folderMenu(BuildContext context, Folder f, Offset at) async {
   final store = context.read<NotesStore>();
-  final choice = await _menu(context, at, const {
+  final choice = await showContextMenu(context, at, const {
     'note': ('New note here', Icons.note_add_outlined),
     'sub': ('New subfolder', Icons.create_new_folder_outlined),
     'rename': ('Rename', Icons.edit_outlined),
@@ -53,14 +53,14 @@ Future<void> _folderMenu(BuildContext context, Folder f, Offset at) async {
     case 'delete':
       if (await confirm(context,
           title: 'Delete "${f.name}"?', message: 'The notes inside are kept and move out of the folder.')) {
-        store.deleteFolder(f);
+        store.removeFolder(f);
       }
   }
 }
 
 Future<void> _noteMenu(BuildContext context, Note n, Offset at) async {
   final store = context.read<NotesStore>();
-  final choice = await _menu(context, at, {
+  final choice = await showContextMenu(context, at, {
     'sub': const ('Add subnote', Icons.subdirectory_arrow_right),
     'rename': const ('Rename', Icons.edit_outlined),
     'icon': const ('Change icon', Icons.emoji_emotions_outlined),
@@ -89,7 +89,7 @@ Future<void> _noteMenu(BuildContext context, Note n, Offset at) async {
       n.pinned = !n.pinned;
       store.updateNote(n);
     case 'move':
-      final target = await showDialog<String>(
+      final target = await showVibeDialog<String>(
         context: context,
         builder: (context) => SimpleDialog(
           title: const Text('Move to folder'),
@@ -107,24 +107,9 @@ Future<void> _noteMenu(BuildContext context, Note n, Offset at) async {
     case 'delete':
       if (await confirm(context,
           title: 'Delete "${n.title}"?', message: 'Its sections and subnotes are deleted too. This cannot be undone.')) {
-        store.deleteNote(n);
+        store.removeNote(n);
       }
   }
-}
-
-Future<String?> _menu(BuildContext context, Offset at, Map<String, (String, IconData)> items) {
-  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-  return showMenu<String>(
-    context: context,
-    position: RelativeRect.fromRect(at & const Size(1, 1), Offset.zero & overlay.size),
-    items: [
-      for (final e in items.entries)
-        PopupMenuItem(
-          value: e.key,
-          child: Row(children: [Icon(e.value.$2, size: 18), const SizedBox(width: 12), Text(e.value.$1)]),
-        ),
-    ],
-  );
 }
 
 Offset _centerOf(BuildContext context) {
@@ -299,7 +284,11 @@ class _NavPaneState extends State<NavPane> {
     if (store.query.isNotEmpty && notes.isEmpty && store.childFolders(f.id).isEmpty) return const [];
 
     return [
-      Builder(
+      Presence(
+        key: ValueKey('folder-${f.id}'),
+        axis: Axis.vertical,
+        removing: store.removing.contains(f.id),
+        child: Builder(
         builder: (rowContext) => Padding(
           padding: EdgeInsets.only(left: depth * 14.0, top: depth == 0 ? 6 : 0),
           child: VibeSelectable(
@@ -332,6 +321,7 @@ class _NavPaneState extends State<NavPane> {
           ),
         ),
       ),
+      ),
       if (open) ...[
         for (final c in store.childFolders(f.id)) ..._folder(context, c, depth + 1),
         for (final n in notes) ..._note(context, n, depth + 1),
@@ -354,15 +344,20 @@ class _NavPaneState extends State<NavPane> {
       }
     }
 
+    final sections = !sub && selected && settings.showNavSections ? store.sectionsOf(n.id) : const <Section>[];
+
     return [
-      Builder(
+      Presence(
+        key: ValueKey('note-${n.id}'),
+        axis: Axis.vertical,
+        removing: store.removing.contains(n.id),
+        child: Builder(
         builder: (rowContext) => Padding(
           padding: EdgeInsets.only(left: depth * 14.0),
           child: VibeSelectable(
             selected: selected,
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            onTap: sub && isDesktopPlatform ? null : open,
-            onDoubleTap: sub && isDesktopPlatform ? open : null,
+            onTap: open,
             onSecondaryTapDown: (d) => _noteMenu(rowContext, n, d.globalPosition),
             onLongPress: () => _noteMenu(rowContext, n, _centerOf(rowContext)),
             child: Row(
@@ -373,7 +368,7 @@ class _NavPaneState extends State<NavPane> {
                     child: NavIcon(
                       n.icon,
                       size: sub ? 15 : 17,
-                      fallback: sub ? Icons.subdirectory_arrow_right : Icons.sticky_note_2_outlined,
+                      fallback: sub ? Icons.description_outlined : Icons.sticky_note_2_outlined,
                     ),
                   ),
                 Expanded(
@@ -386,6 +381,40 @@ class _NavPaneState extends State<NavPane> {
           ),
         ),
       ),
+      ),
+      // The open note lists its canvas sections; tapping one jumps to it.
+      for (final sec in sections)
+        Presence(
+          key: ValueKey('section-${sec.id}'),
+          axis: Axis.vertical,
+          removing: store.removing.contains(sec.id),
+          child: Padding(
+            padding: EdgeInsets.only(left: (depth + 1) * 14.0),
+            child: VibeSelectable(
+              selected: false,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              semanticLabel: 'Section ${store.sectionLabel(sec)}',
+              onTap: () {
+                store.focusSection(sec);
+                widget.onNavigate?.call();
+              },
+              child: Row(
+                children: [
+                  if (settings.showNavIcons)
+                    Padding(padding: const EdgeInsets.only(right: 8), child: Icon(Icons.crop_din, size: 14, color: VibeTheme.of(context).p.muted)),
+                  Expanded(
+                    child: Text(
+                      store.sectionLabel(sec),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13, color: sec.title.trim().isEmpty ? VibeTheme.of(context).p.muted : null),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       for (final s in store.subnotesOf(n.id)) ..._note(context, s, depth + 1),
     ];
   }

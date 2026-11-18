@@ -26,7 +26,7 @@ class VibeTile extends StatelessWidget {
         child: AnimatedContainer(
           duration: current.duration,
           curve: current.curve,
-          width: 200,
+          height: 150,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: p.bg,
@@ -35,7 +35,6 @@ class VibeTile extends StatelessWidget {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
@@ -49,7 +48,8 @@ class VibeTile extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Container(
+              Expanded(
+                child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -76,19 +76,52 @@ class VibeTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    Flexible(
+                      child: Text(
                       spec.tagline,
-                      maxLines: 3,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.getFont(spec.bodyFont, fontSize: 11.5 * spec.fontScale, height: 1.3, color: p.ink),
                     ),
+                    ),
                   ],
                 ),
+              ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// All vibes in a grid of equal tiles that fills the width it is given.
+class VibeGrid extends StatelessWidget {
+  const VibeGrid({super.key, required this.selected, required this.onPick});
+  final String selected;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = VibeTheme.of(context).dark;
+    return LayoutBuilder(
+      builder: (context, box) {
+        const gap = 12.0;
+        final columns = (box.maxWidth / 210).floor().clamp(2, 3);
+        final width = (box.maxWidth - gap * (columns - 1)) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final spec in vibes)
+              SizedBox(
+                width: width,
+                child: VibeTile(spec: spec, dark: dark, selected: selected == spec.id, onTap: () => onPick(spec.id)),
+              ),
+          ],
+        );
+      },
     );
   }
 }

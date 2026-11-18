@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_recent_label">Recent notes</string>
+    <string name="widget_recent_description">Your latest notes, one tap to open</string>
+    <string name="widget_quick_add_label">New note</string>
+    <string name="widget_quick_add_description">Start a new note straight away</string>
+    <string name="widget_empty">No notes yet. Open zrNotes and sign in.</string>
+    <string name="widget_untitled">Untitled</string>
+</resources>

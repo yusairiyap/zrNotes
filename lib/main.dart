@@ -12,6 +12,7 @@ import 'config.dart';
 import 'data/demo_repository.dart';
 import 'data/repository.dart';
 import 'platform/desktop.dart';
+import 'platform/home_widgets.dart';
 import 'state/notes_store.dart';
 import 'state/settings.dart';
 import 'theme/legacy_theme.dart';
@@ -99,6 +100,7 @@ class _AuthGateState extends State<AuthGate> {
       if (!mounted) return;
       if (state.session == null) {
         context.read<NotesStore>().clear();
+        HomeWidgets.clear();
       } else if (was != state.session!.user.id) {
         context.read<AppSettings>().pullFromCloud();
       }

@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config.dart';
 import 'data/demo_repository.dart';
+import 'data/offline_repository.dart';
 import 'data/repository.dart';
 import 'platform/desktop.dart';
 import 'state/notes_store.dart';
@@ -26,7 +27,7 @@ Future<void> main() async {
   if (kIsWeb) unawaited(BrowserContextMenu.disableContextMenu());
   await Supabase.initialize(url: AppConfig.supabaseUrl, publishableKey: AppConfig.supabaseKey);
 
-  final Repository repo = AppConfig.demo ? DemoRepository() : Repository();
+  final Repository repo = AppConfig.demo ? DemoRepository() : OfflineRepository(Repository());
   final settings = await AppSettings.load(repo);
   await DesktopShell.init(settings);
 

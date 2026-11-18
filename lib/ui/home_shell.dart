@@ -102,7 +102,13 @@ class _HomeShellState extends State<HomeShell> {
                   const SizedBox(width: 16),
                   Text('${store.folders.length} folders'),
                   const Spacer(),
-                  Text(store.loading ? 'syncing…' : store.saving ? 'saving…' : 'synced'),
+                  Text(store.offline
+                      ? 'offline${store.pendingChanges > 0 ? ' · ${store.pendingChanges} to sync' : ''}'
+                      : store.loading
+                          ? 'syncing…'
+                          : store.saving
+                              ? 'saving…'
+                              : 'synced'),
                 ],
               ),
             ),

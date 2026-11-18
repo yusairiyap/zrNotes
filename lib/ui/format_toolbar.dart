@@ -29,6 +29,7 @@ class FormatToolbar extends StatefulWidget {
     required this.level,
     required this.showLabels,
     required this.onTable,
+    required this.onDiagram,
     required this.onImage,
     required this.onSubnote,
     this.panelAbove = true,
@@ -38,6 +39,7 @@ class FormatToolbar extends StatefulWidget {
   final UserLevel level;
   final bool showLabels;
   final VoidCallback onTable;
+  final VoidCallback onDiagram;
   final VoidCallback onImage;
   final VoidCallback onSubnote;
 
@@ -156,6 +158,7 @@ class _FormatToolbarState extends State<FormatToolbar> {
   _Tool get _indentMore => _Tool(Icons.format_indent_increase, 'Indent', 'Indent more', () => c.indentSelection(true));
 
   _Tool get _table => _Tool(Icons.table_chart_outlined, 'Table', 'Insert a table', widget.onTable);
+  _Tool get _diagram => _Tool(Icons.account_tree_outlined, 'Diagram', 'Insert a Mermaid diagram', widget.onDiagram);
   _Tool get _image => _Tool(Icons.image_outlined, 'Image', 'Insert an image', widget.onImage);
   _Tool get _subnote => _Tool(Icons.note_add_outlined, 'Subnote', 'Add a subnote here', widget.onSubnote);
   _Tool get _linkTool => _Tool(Icons.link, 'Link', 'Add or edit a link', _link, on: _value(Attribute.link) != null);
@@ -175,7 +178,7 @@ class _FormatToolbarState extends State<FormatToolbar> {
       [_bold, _italic, _underline, _mark],
       [_bullets, if (!simple) _numbers, _checks],
       if (!simple) [_title],
-      [if (!simple) _table, _image, _subnote],
+      [if (!simple) _table, if (power) _diagram, _image, _subnote],
     ];
 
     final panel = <(String, Widget)>[
@@ -208,7 +211,7 @@ class _FormatToolbarState extends State<FormatToolbar> {
             _indentMore,
           ])
         ),
-      ('Insert', _wrap([_table, _image, _subnote, _linkTool])),
+      ('Insert', _wrap([_table, if (!simple) _diagram, _image, _subnote, _linkTool])),
       ('History', _wrap([_undo, _redo])),
     ];
 
